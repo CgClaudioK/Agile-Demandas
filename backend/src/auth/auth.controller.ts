@@ -1,8 +1,7 @@
-import { Controller, Post, Body, Get, Request, UseGuards } from '@nestjs/common';
+﻿import { Controller, Post, Body, Get, Request, UseGuards } from '@nestjs/common';
 import { AuthGuard } from './auth.guard.js';
 import type { SignUpDTO, SignInDTO } from './dtos/auth.js';
 import { AuthService } from './auth.service.js';
-import { raceWith } from 'rxjs';
 
 @Controller('auth')
 export class AuthController {
