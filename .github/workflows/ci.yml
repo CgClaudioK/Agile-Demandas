@@ -1,4 +1,4 @@
-name: CI
+﻿name: CI
 
 on:
   push:
@@ -10,28 +10,22 @@ permissions:
 
 jobs:
   ci:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - project: backend
-            sources: src
-          - project: frontend
-            sources: app
+        project: [backend, frontend]
     defaults:
       run:
         working-directory: ${{ matrix.project }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
           cache-dependency-path: ${{ matrix.project }}/package-lock.json
 
@@ -43,16 +37,43 @@ jobs:
       - name: Test
         run: npm test --if-present -- --coverage --coverage.reporter=lcov --coverage.reporter=text --passWithNoTests
 
+      - name: Prefix coverage paths
+        run: |
+          if [ -f coverage/lcov.info ]; then
+            sed -i 's#^SF:#SF:${{ matrix.project }}/#' coverage/lcov.info
+          fi
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.project }}
+          path: ${{ matrix.project }}/coverage/lcov.info
+          if-no-files-found: ignore
+
+  sonar:
+    needs: ci
+    runs-on: ubuntu-24.04
+    if: ${{ github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download coverage
+        uses: actions/download-artifact@v4
+        with:
+          path: coverage-reports
+
       - name: SonarCloud scan
-        if: ${{ github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository }}
         uses: SonarSource/sonarqube-scan-action@v6
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
-          projectBaseDir: ${{ matrix.project }}
           args: >
-            -Dsonar.projectKey=${{ github.repository_owner }}_Agile-Demand-${{ matrix.project }}
+            -Dsonar.projectKey=cgclaudiok_Agile-Demandas
             -Dsonar.organization=cgclaudiok
             -Dsonar.host.url=https://sonarcloud.io
-            -Dsonar.sources=${{ matrix.sources }}
-            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
+            -Dsonar.sources=backend/src,frontend/app
+            -Dsonar.exclusions=**/node_modules/**,**/*.spec.ts
+            -Dsonar.javascript.lcov.reportPaths=coverage-reports/coverage-backend/lcov.info
