@@ -52,7 +52,7 @@ jobs:
           projectBaseDir: ${{ matrix.project }}
           args: >
             -Dsonar.projectKey=${{ github.repository_owner }}_Agile-Demand-${{ matrix.project }}
-            -Dsonar.organization=${{ github.repository_owner }}
+            -Dsonar.organization=cgclaudiok
             -Dsonar.host.url=https://sonarcloud.io
             -Dsonar.sources=${{ matrix.sources }}
             -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
