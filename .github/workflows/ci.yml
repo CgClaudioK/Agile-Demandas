@@ -71,7 +71,7 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
           args: >
-            -Dsonar.projectKey=cgclaudiok_Agile-Demandas
+            -Dsonar.projectKey=CgClaudioK_Agile---Demandas
             -Dsonar.organization=cgclaudiok
             -Dsonar.host.url=https://sonarcloud.io
             -Dsonar.sources=backend/src,frontend/app
