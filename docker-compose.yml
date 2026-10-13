@@ -1,0 +1,112 @@
+services:
+  postgres:
+    image: docker.io/library/postgres:16
+    container_name: agile-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: agile
+    ports:
+      - "5435:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d agile"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: ./backend
+    container_name: agile-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/agile
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-troque-por-um-segredo-longo}
+      PORT: 3000
+      FRONTEND_URL: http://localhost:3001
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-analista@agile.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-Analista@123}
+    ports:
+      - "3000:3000"
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3000}
+    container_name: agile-frontend
+    depends_on:
+      - api
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+
+  loki:
+    image: docker.io/grafana/loki:3.0.0
+    container_name: agile-loki
+    command: -config.file=/etc/loki/loki.yml
+    volumes:
+      - ./observability/loki.yml:/etc/loki/loki.yml:ro
+      - lokidata:/loki
+
+  promtail:
+    image: docker.io/grafana/promtail:3.0.0
+    container_name: agile-promtail
+    command: -config.file=/etc/promtail/promtail.yml
+    depends_on:
+      - loki
+    volumes:
+      - ./observability/promtail.yml:/etc/promtail/promtail.yml:ro
+      - ${DOCKER_SOCK:-/var/run/docker.sock}:/var/run/docker.sock
+
+  prometheus:
+    image: docker.io/prom/prometheus:v2.53.0
+    container_name: agile-prometheus
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - promdata:/prometheus
+
+  node-exporter:
+    image: docker.io/prom/node-exporter:v1.8.1
+    container_name: agile-node-exporter
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    container_name: agile-cadvisor
+    privileged: true
+    pid: host
+    cgroup: host
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+      - /dev/disk/:/dev/disk:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+
+  grafana:
+    image: docker.io/grafana/grafana:11.0.0
+    container_name: agile-grafana
+    depends_on:
+      - loki
+      - prometheus
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    ports:
+      - "3002:3000"
+    volumes:
+      - ./observability/grafana/datasource.yml:/etc/grafana/provisioning/datasources/datasource.yml:ro
+      - ./observability/grafana/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafanadata:/var/lib/grafana
+
+volumes:
+  pgdata:
+  lokidata:
+  grafanadata:
+  promdata:

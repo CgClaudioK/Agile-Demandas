@@ -1,0 +1,180 @@
+{
+    "refresh": "15s",
+    "panels": [
+        {
+            "id": 1,
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "percent"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "y": 0,
+                "w": 12,
+                "h": 8,
+                "x": 0
+            },
+            "targets": [
+                {
+                    "legendFormat": "cpu",
+                    "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\"}[1m])) * 100)",
+                    "refId": "A"
+                }
+            ],
+            "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+            },
+            "type": "timeseries",
+            "title": "CPU do servidor (%)"
+        },
+        {
+            "id": 2,
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "percent"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "y": 0,
+                "w": 12,
+                "h": 8,
+                "x": 12
+            },
+            "targets": [
+                {
+                    "legendFormat": "memoria",
+                    "expr": "(1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100",
+                    "refId": "A"
+                }
+            ],
+            "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+            },
+            "type": "timeseries",
+            "title": "Memoria do servidor (%)"
+        },
+        {
+            "id": 3,
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "percent"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "y": 8,
+                "w": 12,
+                "h": 8,
+                "x": 0
+            },
+            "targets": [
+                {
+                    "legendFormat": "disco",
+                    "expr": "(1 - node_filesystem_avail_bytes{mountpoint=\"/etc/hosts\"} / node_filesystem_size_bytes{mountpoint=\"/etc/hosts\"}) * 100",
+                    "refId": "A"
+                }
+            ],
+            "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+            },
+            "type": "timeseries",
+            "title": "Disco / (%)"
+        },
+        {
+            "id": 4,
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "Bps"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "y": 8,
+                "w": 12,
+                "h": 8,
+                "x": 12
+            },
+            "targets": [
+                {
+                    "legendFormat": "leitura",
+                    "expr": "sum(rate(node_disk_read_bytes_total[1m]))",
+                    "refId": "A"
+                }
+            ],
+            "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+            },
+            "type": "timeseries",
+            "title": "Disco I/O (bytes/s)"
+        },
+        {
+            "id": 5,
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "percent"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "y": 16,
+                "w": 12,
+                "h": 8,
+                "x": 0
+            },
+            "targets": [
+                {
+                    "legendFormat": "{{name}}",
+                    "expr": "sum by (id) (rate(container_cpu_usage_seconds_total{id=\"/docker\"}[1m])) * 100",
+                    "refId": "A"
+                }
+            ],
+            "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+            },
+            "type": "timeseries",
+            "title": "CPU dos containers Docker (%)"
+        },
+        {
+            "id": 6,
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "bytes"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "y": 16,
+                "w": 12,
+                "h": 8,
+                "x": 12
+            },
+            "targets": [
+                {
+                    "legendFormat": "{{name}}",
+                    "expr": "container_memory_working_set_bytes{id=\"/docker\"}",
+                    "refId": "A"
+                }
+            ],
+            "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+            },
+            "type": "timeseries",
+            "title": "Memoria dos containers Docker"
+        }
+    ],
+    "uid": "servidor",
+    "time": {
+        "to": "now",
+        "from": "now-30m"
+    },
+    "schemaVersion": 39,
+    "title": "Servidor e containers"
+}
