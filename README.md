@@ -9,7 +9,7 @@ O caminho recomendado e mais prático é usar **Docker Compose** para subir toda
 ### Pré-requisitos
 
 - Git
-- Docker Desktop iniciado, com Docker Compose v2 disponível ou Podman iniciado.
+- Docker Desktop iniciado, com Docker Compose.
 - Node.js 22 ou superior e npm (necessário apenas se optar por rodar o front-end fora do Docker)
 
 Os comandos abaixo usam **PowerShell** e partem da raiz do repositório, onde está `docker-compose.yml`.
@@ -25,55 +25,17 @@ docker compose ps
 
 ```
 
-Esse comando constrói localmente as imagens da API (`backend/Dockerfile`) e do Front-end (`frontend/Dockerfile`) e inicia todos os serviços integrados:
+Esse comando inicia as imagens da API (`backend/Dockerfile`) e do Front-end (`frontend/Dockerfile`) e inicia todos os serviços integrados:
 - O **PostgreSQL** é iniciado e realiza health check.
 - A **API** aguarda o banco ficar pronto, executa automaticamente as migrations (`prisma migrate deploy`) e o seed de dados padrão, iniciando na porta `3000`.
 - O **Front-end** compila e serve a aplicação Next.js na porta `3001`.
 - A stack de **observabilidade** (Loki, Promtail, Prometheus, Node Exporter, cAdvisor e Grafana) sobe coletando métricas e logs estruturados.
 
-Para acompanhar os logs da API e do front-end:
-```powershell
-docker compose logs -f api frontend
-```
-
----
-
-### Opção 2: Subir com o Podman
-
-Caso prefira executar via **Podman** em vez de Docker:
-
-Com o terminal atualizado, verifique o status da máquina e suba a stack:
-
-```powershell
-podman --version                              # valida se o comando foi reconhecido
-podman machine list                           # confira se podman-machine-default está "running"
-podman machine start                          # inicia a máquina caso esteja parada
-podman compose up -d --build                  # constrói e sobe todos os serviços
-podman compose ps
-```
-
-O Compose foi preparado com imagens referenciadas por nome completo (`docker.io/...`), evitando o erro de "short name" do Podman. O Promtail lê os logs pelo socket do mecanismo de containers; caso deseje a coleta completa de logs no Podman, informe o socket no comando de subida:
-```powershell
-$env:DOCKER_SOCK = (podman info --format '{{.Host.RemoteSocket.Path}}')
-podman compose up -d --build
-```
-
-
-### Opção 3: Desenvolvimento local do Front-end (Opcional)
-
-Se preferir editar a interface com recarregamento instantâneo (*Hot Reload*), suba apenas os serviços de backend e observabilidade no Docker e rode o Next.js no host:
+### Opção separada
 
 1. **Subir banco, API e observabilidade:**
    ```powershell
    docker compose up -d --build postgres api grafana prometheus loki promtail
-   ```
-
-2. **Iniciar o front-end em outro terminal:**
-   ```powershell
-   Set-Location .\frontend
-   Copy-Item .env.example .env.local   # faça isso apenas na primeira execução se ainda não tiver criado
-   npm ci
-   npm run dev
    ```
 
 Abra [http://localhost:3001](http://localhost:3001). O arquivo `frontend/.env.local` define `NEXT_PUBLIC_API_URL=http://localhost:3000`.
@@ -88,7 +50,7 @@ Abra [http://localhost:3001](http://localhost:3001). O arquivo `frontend/.env.lo
 | PostgreSQL | `localhost:5435` | Banco `agile`, usuário `postgres`, senha local `postgres` |
 | Grafana | [http://localhost:3002](http://localhost:3002) | `admin` / `admin` |
 
-O seed cria o analista `analista@agile.com` com senha `Analista@123` por padrão. Contas criadas pela tela começam com o papel `SOLICITANTE`.
+O seed cria o user analista para primeiro acesso admin com email `analista@agile.com` e com senha `Analista@123` por padrão. Contas criadas pela tela de cadastro começam com o papel `SOLICITANTE`.
 
 ### Comandos úteis
 
@@ -103,10 +65,6 @@ docker compose up -d --build api        # reconstrói e inicia apenas a API
 docker compose down                     # para os serviços; mantém os volumes e dados
 ```
 
-### Executar API e front-end fora de containers
-
-Esta opção mantém apenas o PostgreSQL no Compose e é útil para desenvolver o back-end com hot reload. Se a API já estiver rodando no container, pare-a primeiro com `docker compose stop api`.
-
 No primeiro terminal, na raiz:
 
 ```powershell
@@ -116,7 +74,7 @@ docker compose up -d postgres
 No segundo terminal:
 
 ```powershell
-Set-Location .\backend
+ cd backend
 Copy-Item .env.example .env          # faça isso apenas na primeira execução
 npm ci
 npx prisma migrate deploy
@@ -126,23 +84,9 @@ npm run start:dev
 
 No terceiro terminal, inicie o front-end conforme a etapa anterior. O `.env` do back-end deve usar a URL de banco para acesso pelo host (o exemplo fornecido aponta para `localhost:5435`).
 
-
-### Problemas comuns
-
-- **O Docker não conecta:** inicie o Docker Desktop e confirme que `docker compose version` funciona.
-- **Porta ocupada:** verifique as portas `3000`, `3001`, `3002` e `5435`; encerre o processo que as utiliza ou ajuste o mapeamento em `docker-compose.yml`.
-- **A API não inicia:** confira `docker compose logs -f postgres` e `docker compose logs -f api`. A API aplica migrations e seed no início.
-- **Alterações do back-end não aparecem:** reconstrua com `docker compose up -d --build api`.
-- **Alterações do front-end não aparecem com `npm start`:** execute `npm run build` novamente ou use `npm run dev`.
-- **O banco mantém dados de uma execução anterior:** os dados persistem no volume `pgdata`; só use `docker compose down -v` se realmente quiser apagá-los.
-
 ## Interface e Telas do Sistema
 
 Visão geral da experiência visual do **Agile Demand**, construída em Next.js com Tailwind CSS:
-
-### Vídeo de Demonstração
-
-[![Vídeo de Demonstração](docs/img/Video-Demonstracao.mp4)](docs/img/Video-Demonstracao.mp4)
 
 ### 1. Tela de Login e Cadastro
 Interface limpa e responsiva para autenticação por e-mail e senha, permitindo também o cadastro público de novos usuários solicitantes.
@@ -219,9 +163,9 @@ As respostas abaixo apresentam  evoluções possíveis para o sistema.
 **Evolução da Infraestrutura em Nuvem (Kubernetes via Terraform na AWS & API Gateway):**
 - **Orquestração com Kubernetes (EKS):** Provisionamento de toda a infraestrutura como código (IaC) utilizando **Terraform** modularizado (VPC com subnets públicas/privadas, cluster EKS, Node Groups gerenciados com Auto Scaling e banco de dados gerenciado AWS RDS PostgreSQL / Aurora Multi-AZ).
 - **Camada de Borda e API Gateway:**
-  - **AWS API Gateway:** Recomendado se a estratégia for 100% na AWS. Totalmente serverless, integração nativa com AWS WAF (Web Application Firewall), autenticação e rate limiting integrados e baixo custo operacional de infraestrutura.
-  - **Kong Gateway (ou Ingress Controller no K8s):** Alternativa superior, permitindo executar a mesma camada de gateway tanto em clusters locais/on-premise quanto em múltiplos provedores de nuvem, com plugins de autenticação JWT, transformação de payloads e observabilidade (Prometheus/OpenTelemetry).
-- **Esteira e GitOps:** Deploy automatizado no cluster Kubernetes utilizando **Helm** para entrega contínua declarativa e auditável.
+ - **AWS API Gateway:** Recomendado se a estratégia for 100% na AWS. Totalmente serverless, integração nativa com AWS WAF (Web Application Firewall), autenticação e rate limiting integrados e baixo custo operacional de infraestrutura.
+ - **Kong Gateway (ou Ingress Controller no K8s):** Alternativa superior, permitindo executar a mesma camada de gateway tanto em clusters locais/on-premise quanto em múltiplos provedores de nuvem, com plugins de autenticação JWT, transformação de payloads e observabilidade (Prometheus/OpenTelemetry).
+ - **Esteira e GitOps:** Deploy automatizado no cluster Kubernetes utilizando **Helm** para entrega contínua declarativa e auditável.
 
 **Gestão Segura de Credenciais (Secrets Management):**
 - **Ambiente local de avaliação:** Mantemos `.env.example` com valores pré-configurados e defaults no `docker-compose.yml` (`${JWT_SECRET_KEY:-...}`) para que seja possível executar a aplicação sem problemas para a avaliação. O `.env` real é protegido via `.gitignore`.
@@ -234,17 +178,15 @@ As respostas abaixo apresentam  evoluções possíveis para o sistema.
 **Escalabilidade, disponibilidade e manutenibilidade:** em uma implantação real, usar configuração e credenciais externas ao código, health checks, balanceamento e réplicas da API (Kubernetes seria uma alternativa para escalar e garantir a alta disponibilidade); definir backups testados e plano de recuperação do banco; criar alertas e acompanhar métricas, logs e traces, automatizar testes e migrations no pipeline, documentações e ADRs atualizados. Essas medidas reduzem riscos, mas não eliminam a necessidade de monitoramento contínuo e ajustes conforme a carga e o crescimento do sistema.
 
 **Segurança das Rotas e Exigência do JWT:**
-A API adota a estratégia de **Secure by Default**: dois guards globais (`AuthGuard` e `RolesGuard`) protegem automaticamente todas as rotas registradas. O cabeçalho `Authorization: Bearer <token>` é estritamente obrigatório em todas as chamadas de negócio. As únicas rotas públicas são `/auth/signup` e `/auth/signin` (marcadas explicitamente com o decorator `@Public()`). Adicionalmente, as operações de decisão (`PATCH /demands/:id/decision`) e gestão de usuários (`/users`) exigem papel `ANALISTA`.
+A API possui dois guards globais (`AuthGuard` e `RolesGuard`) protegem automaticamente todas as rotas registradas. O cabeçalho `Authorization: Bearer <token>` é obrigatório em todas as chamadas de negócio. As únicas rotas públicas são `/auth/signup` e `/auth/signin` (marcadas explicitamente com o decorator `@Public()`). Adicionalmente, as operações de decisão (`PATCH /demands/:id/decision`) e gestão de usuários (`/users`) exigem papel `ANALISTA`.
 
-### ### Integração com Sistemas Externos
+### Integração com Sistemas Externos
 
 #### 1. Como realizaria a integração?
 
-A integração seria iniciada após a confirmação da aprovação de uma demanda pelo backend. A decisão seria persistida no PostgreSQL e, em seguida, um evento seria disponibilizado para processamento assíncrono, evitando que a requisição do usuário dependa diretamente da disponibilidade do sistema externo.
-
 Como primeira evolução, implementaria notificações por e-mail utilizando SMTP ou um serviço corporativo de envio de mensagens. O solicitante poderia receber a confirmação da aprovação, enquanto equipes responsáveis seriam notificadas conforme as regras de negócio.
 
-Para integrações transacionais com sistemas corporativos, como, por exemplo, SalesForce ou plataformas internas, utilizaria APIs HTTP/REST, conforme os contratos e mecanismos de autenticação disponibilizados pelo sistema de destino.
+Para integrações com sistemas corporativos, como, por exemplo, SalesForce ou plataformas internas, utilizaria APIs HTTP/REST, conforme os contratos e mecanismos de autenticação disponibilizados pelo sistema de destino.
 
 #### 2. Quais padrões ou tecnologias utilizaria?
 
@@ -253,10 +195,9 @@ A solução poderia evoluir de forma incremental:
 - **SMTP:** envio de notificações por e-mail após a aprovação ou rejeição.
 - **API REST:** comunicação com sistemas corporativos que disponibilizem endpoints para receber solicitações aprovadas.
 - **Fila de mensagens:** RabbitMQ ou Kafka para desacoplar a aplicação do processamento externo, caso o volume e os requisitos operacionais justifiquem essa infraestrutura.
-- **Transactional Outbox:** persistência do evento de integração na mesma transação que registra a aprovação, evitando a inconsistência entre salvar a decisão e publicar o evento.
 - **Worker de integração:** processo responsável por consumir eventos, executar as chamadas externas e registrar seus resultados.
 
-O desenho inicial manteria o backend NestJS como responsável pelas regras de negócio. Os componentes de mensageria e integração seriam adicionados conforme a necessidade, sem introduzir complexidade desnecessária ao protótipo.
+O desenho inicial manteria o backend NestJS como responsável pelas regras de negócio. Os componentes de mensageria e integração seriam adicionados conforme a necessidade, sem complexidade desnecessária.
 
 #### 3. Como trataria falhas de comunicação?
 
