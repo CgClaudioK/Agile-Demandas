@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,9 +7,69 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum Role {
+  SOLICITANTE
+  ANALISTA
+}
+
+enum Priority {
+  BAIXA
+  MEDIA
+  ALTA
+}
+
+enum Status {
+  ABERTA
+  EM_ANALISE
+  APROVADA
+  REJEITADA
+}
+
 model User {
-  id    Int     @id @default(autoincrement())
-  email String  @unique
-  name  String?
+  id       Int      @id @default(autoincrement())
+  email    String   @unique
+  name     String?
   password String
+  role     Role     @default(SOLICITANTE)
+  demands  Demand[]
+}
+
+model Demand {
+  id              Int      @id @default(autoincrement())
+  title           String
+  description     String
+  requester       String
+  area            String
+  priority        Priority @default(MEDIA)
+  status          Status   @default(ABERTA)
+  decisionComment String?
+  decidedAt       DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  createdById     Int
+  createdBy       User     @relation(fields: [createdById], references: [id])
+  events          DemandEvent[]
+
+  @@index([status, priority, createdAt])
+}
+
+enum EventType {
+  CRIADA
+  EDITADA
+  STATUS
+  COMENTARIO
+}
+
+model DemandEvent {
+  id         Int       @id @default(autoincrement())
+  demandId   Int
+  demand     Demand    @relation(fields: [demandId], references: [id], onDelete: Cascade)
+  type       EventType
+  authorId   Int
+  authorName String
+  message    String?
+  toStatus   Status?
+  createdAt  DateTime  @default(now())
+
+  @@index([demandId, createdAt])
 }

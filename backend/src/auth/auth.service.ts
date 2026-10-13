@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
 import type { SignUpDTO, SignInDTO } from './dtos/auth.js';
 import { PrismaService } from '../prisma/app.module.js';
 import * as bcrypt from 'bcrypt';
@@ -15,7 +15,7 @@ export class AuthService {
         });
 
         if (userAlreadyExists) {
-            throw new UnauthorizedException('User already exists');
+            throw new ConflictException('User already exists');
         }
 
         const hashedPassword = await bcrypt.hash(data.password, 10);
@@ -50,7 +50,7 @@ export class AuthService {
             throw new UnauthorizedException('Invalid credentials');
         }
 
-        const token = await this.jwtService.signAsync({ id: user.id, email: user.email, name: user.name });
+        const token = await this.jwtService.signAsync({ id: user.id, email: user.email, name: user.name, role: user.role });
         
         return { 
             token
